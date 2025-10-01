@@ -21,7 +21,7 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          IMAGE=ghcr.io/${{ env.REPO_OWNER_LC}}/static-frontend
+          IMAGE=ghcr.io/${{ env.REPO_OWNER_LC}}/device-documentation
           docker build -t $IMAGE:sha-${{ github.sha }} .
           docker push $IMAGE:sha-${{ github.sha }}
 
@@ -36,7 +36,7 @@ jobs:
 #        run: |
 #          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
 #          sudo chmod +x /usr/bin/yq
-
+#
 #      - name: Clone infra repo
 #        run: |
 #          git clone https://oauth2:${{ secrets.GITLAB_TOKEN }}@gitlab.com/dan6103605/infra.git
@@ -47,5 +47,5 @@ jobs:
 #          yq -i '.spec.template.spec.containers[0].image = "ghcr.io/${{ env.REPO_OWNER_LC}}/device-documentation:sha-${{ github.sha }}"' apps/frontend/static/deployment.yaml
 #
 #          git add apps/frontend/static/deployment.yaml
-#          git commit -m "Update static-frontend image to sha-${{ github.sha }}"
+#          git commit -m "Update device-documentation image to sha-${{ github.sha }}"
 #          git push origin main

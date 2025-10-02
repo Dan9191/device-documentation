@@ -118,13 +118,227 @@
 
         <div id="install" class="content-section hidden">
             <h1>Установка</h1>
-            <p>Шаги по установке...</p>
-            <img src="images/install.png" alt="Install">
+
+            <p>Требуется создать файл docker-compose, затем применить его командой</p>
+            <pre>
+                <code>
+                    docker-compose up -d
+                </code>
+            </pre>
+
+            <h2>docker-compose файл</h2>
+
+            <pre>
+                <code>
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: medical-postgres
+    environment:
+      POSTGRES_DB: patients_history
+      POSTGRES_USER: medical_user
+      POSTGRES_PASSWORD: medical_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - medical-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medical_user -d patients_history"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. History Service
+  history-service:
+    image: ghcr.io/dan9191/history:sha-d17aef6723a3c625b818f7c8c9d9eab2fabc8506
+    container_name: medical-history
+    environment:
+      - PATIENT_SERVER_PORT=8097
+      - PATIENT_DATASOURCE_URL=jdbc:postgresql://postgres:5432/patients_history?currentSchema=patients_history
+      - PATIENT_USER_NAME=medical_user
+      - PATIENT_USER_PASSWORD=medical_password
+      - PATIENT_LOGIN=admin
+      - PATIENT_PASSWORD=secret123
+    ports:
+      - "8097:8097"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - medical-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8097/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 3. Device Service
+  device-service:
+    image: ghcr.io/dan9191/device:sha-67813b6bb41242bb2b686b89a7708271d931dd54
+    container_name: medical-device
+    environment:
+      - MEDICAL_DEVICE_SOURCE_URL=ws://history-service:8097/ws
+    ports:
+      - "8099:8099"
+    depends_on:
+      history-service:
+        condition: service_started # Изменено с service_healthy на service_started
+    networks:
+      - medical-network
+    command: ["sh", "-c", "sleep 40 && java -jar /app/app.jar"] # Добавлена задержка 40 секунд
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8099/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 4. Frontend React App
+  frontend:
+    image: ghcr.io/dan9191/medical-frontend:sha-ee9e47ff925ccd61e0435516195c6d73cc08a6f1
+    container_name: medical-frontend
+    environment:
+      - REACT_APP_DEVICE_HTTP=http://localhost:8099/v1/device
+      - REACT_APP_DEVICE_WS=ws://localhost:8099/ws
+      - BACKEND_HTTP_URL=http://localhost:8099/v1/device
+      - BACKEND_WS_URL=ws://localhost:8099/ws
+      - BACKEND_HOST=localhost:8099
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - device-service
+    networks:
+      - medical-network
+
+networks:
+  medical-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+                </code>
+            </pre>
+
+            <h2>Описание основных переменных окружения сервиса-устройства</h2>
+
+            <table>
+                <thead>
+                <tr>
+                    <th>Переменная</th>
+                    <th>Значение переменной (по-умолчанию)</th>
+                    <th>Описание</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td class="variable-name">DEVICE_SERVER_PORT</td>
+                    <td class="default-value">8099</td>
+                    <td>Порт, на котором поднимается сервис</td>
+                </tr>
+                <tr>
+                    <td class="variable-name">SOURCE_URL</td>
+                    <td class="default-value">ws://localhost:8097/ws</td>
+                    <td>Урл для чтения потоковых данных</td>
+                </tr>
+                <tr>
+                    <td class="variable-name">WINDOW_DURATION</td>
+                    <td class="default-value">10.0</td>
+                    <td>Продолжительность измеряемых отрезков времени, для вычисления предикатов</td>
+                </tr>
+                </tbody>
+            </table>
+
+            <h2>Описание основных переменных окружения сервиса-хранилища</h2>
+            <table>
+                <thead>
+                <tr>
+                    <th>Переменная</th>
+                    <th>Значение переменной (по-умолчанию)</th>
+                    <th>Описание</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td class="variable-name">PATIENT_SERVER_PORT</td>
+                    <td class="default-value">8097</td>
+                    <td>Порт, на котором поднимается сервис</td>
+                </tr>
+                <tr>
+                    <td class="variable-name">PATIENT_DATASOURCE_URL</td>
+                    <td class="default-value">jdbc:postgresql://localhost:5432/test?currentSchema=patients_history</td>
+                    <td>Урл схемы в БД</td>
+                </tr>
+                <tr>
+                    <td class="variable-name">PATIENT_USER_NAME</td>
+                    <td class="default-value">test</td>
+                    <td>Пользователь БД</td>
+                </tr>
+                <tr>
+                    <td class="variable-name">PATIENT_USER_PASSWORD</td>
+                    <td class="default-value">test</td>
+                    <td>Пароль пользователя БД</td>
+                </tr>
+                <tr>
+                    <td class="variable-name">PATIENT_LOGIN</td>
+                    <td class="default-value">admin</td>
+                    <td>Логин</td>
+                </tr>
+                <tr>
+                    <td class="variable-name">PATIENT_PASSWORD</td>
+                    <td class="default-value">secret123</td>
+                    <td>Пароль</td>
+                </tr>
+                </tbody>
+            </table>
+
+            <h2>Описание основных переменных окружения фронтенд приложения</h2>
+
+            <table>
+                <thead>
+                <tr>
+                    <th>Переменная</th>
+                    <th>Значение переменной (по-умолчанию)</th>
+                    <th>Описание</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td class="variable-name">REACT_APP_DEVICE_HTTP</td>
+                    <td class="default-value">https://localhost:8099/v1/device</td>
+                    <td>Порт для общения с бэкендом по REST</td>
+                </tr>
+                <tr>
+                    <td class="variable-name">REACT_APP_DEVICE_WS</td>
+                    <td class="default-value">https://localhost:8099/ws</td>
+                    <td>Порт для общения с бэкендом по web socket</td>
+                </tr>
+                <tr>
+                    <td class="variable-name">BACKEND_HTTP_URL</td>
+                    <td class="default-value">https://localhost:8099/v1/device</td>
+                    <td>Порт для общения с бэкендом по REST</td>
+                </tr>
+                <tr>
+                    <td class="variable-name">BACKEND_WS_URL</td>
+                    <td class="default-value">https://localhost:8099/ws</td>
+                    <td>Порт для общения с бэкендом по web socket</td>
+                </tr>
+                <tr>
+                    <td class="variable-name">BACKEND_HOST</td>
+                    <td class="default-value">localhost:8099</td>
+                    <td>Адрес бэкенда</td>
+                </tr>
+                </tbody>
+            </table>
+
         </div>
         <div id="usage" class="content-section hidden">
             <h1>Использование</h1>
 
-            <a href="https://disk.yandex.ru/i/CtWtu4bt2ft9WA" target="_blank">Пример работы</a>
+            <a href="https://disk.yandex.ru/i/CtWtu4bt2ft9WA" target="_blank">Пример работы (клик)</a>
 
             <p>Ссылка на сервис, работающий с хранением и передачей данных</p>
             <a href="https://patient-history.kumiko.pro/login" target="_blank">https://patient-history.kumiko.pro/login</a>
@@ -141,7 +355,7 @@
             <p>После входа в сервис хранения и обработки данных доступны страницы с пациентами и диагнозами.</p>
             <p>Пациентов и диагнозы можно создавать, удалять и редактировать.</p>
             <p>При выборе пациентов стоит учитывать, что чем больше у него батчей, тем дольше происходит его открытие.
-                Это связано с выгрузкой данных с приборов и отрисовкой.
+                Это связано с выгрузкой данных с БД и отрисовкой.
                 В будущем, в обычном использовании рекомендуется их поменять на картинки, а от выгрузки данных отказаться.
                 Решение рисовать графики было принято на начальном этапе для визуализации данных(это было полезно).
                 Так, при загрузке "тяжелого" пациента может потребоваться ждать 20-30 секунд.
@@ -347,7 +561,7 @@
         <div id="sbComputer" class="content-section hidden">
             <h1>Работа с одноплатным компьютером</h1>
 
-            <a href="https://disk.yandex.ru/i/x-EDMgi0gv6IQw" target="_blank">Пример работы</a>
+            <a href="https://disk.yandex.ru/i/x-EDMgi0gv6IQw" target="_blank">Пример работы (клик)</a>
 
             <img src="images/pi3.png" alt="pi3" style="max-width: 100%; height: auto;">
 

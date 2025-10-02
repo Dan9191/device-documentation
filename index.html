@@ -41,8 +41,10 @@
             <h2>Проект состоит из трех основных компонентов:</h2>
 
             <h2>Сервис patient-history (Spring Boot)</h2>
+            <a href="https://github.com/Dan9191/history" target="_blank">репозиторий</a>
+
             <ul>
-                <li>Хранит данные пациенток, поступающие с медицинских приборов: показатели матки (uterus) и частоту
+                <li>Хранит данные пациенток, поступающие с медицинских приборов: показатели сократительной активность матки (uterus) и частоту
                     сердечных сокращений плода (bpm) во время родов.
                 </li>
                 <li>Взаимодействие с пользователем происходит через встроенный Thymeleaf.</li>
@@ -52,13 +54,15 @@
             </ul>
 
             <h2>Сервис device (Spring Boot)</h2>
+            <a href="https://github.com/Dan9191/device" target="_blank">репозиторий</a>
             <ul>
                 <li>Читает данные с WebSocket сервиса patient-history.</li>
-                <li>Обрабатывает и анализирует данные, выделяя необходимые параметры.</li>
+                <li>Обрабатывает и анализирует данные, выделяя необходимые параметры и формируя предсказания.</li>
                 <li>Передает обработанные данные через свой WebSocket.</li>
             </ul>
 
             <h2>Фронтенд-приложение</h2>
+            <a href="https://github.com/Dan9191/medical-frontend" target="_blank">репозиторий</a>
             <ul>
                 <li>Периодически обращается к REST API сервиса device для получения данных о пациенте.</li>
                 <li>Подписывается на WebSocket сервиса device для получения данных в реальном времени.</li>
@@ -70,6 +74,10 @@
                 мониторинг динамики состояний пациенток.</p>
             <p>Основная причина использование WebSocket для потоковой передачи данных: скорость и простота применения, в
                 сравнении с различными брокерами сообщений.</p>
+
+            <h2>Документация</h2>
+            <a href="https://github.com/Dan9191/device-documentation" target="_blank">репозиторий</a>
+            <p>Репозиторий, в котором описана документация к проекту.</p>
         </div>
 
         <div id="infrastructure" class="content-section">
@@ -292,8 +300,74 @@ new Complications(3L,
 
         <div id="sbComputer" class="content-section hidden">
             <h1>Работа с одноплатным компьютером</h1>
-            <p>Пример использования...</p>
-            <img src="images/usage.png" alt="Usage">
+
+            <a href="https://disk.yandex.ru/i/x-EDMgi0gv6IQw" target="_blank">Пример работы</a>
+
+            <img src="images/pi3.png" alt="pi3" style="max-width: 100%; height: auto;">
+
+            <p>Для работы с одноплатным компьютером Orange Pi Zero 3 был установлен в качестве ОС Armbian_25.5.1</p>
+
+            <p>Инструкция:</p>
+
+            <pre><code>
+                # Базовые пакеты
+                sudo apt update && sudo apt upgrade -y
+                sudo apt install -y git curl wget unzip apt-transport-https ca-certificates gnupg lsb-release
+            </code></pre>
+
+            <pre><code>
+                # Установка JDK 21
+                sudo apt install -y openjdk-21-jdk
+                java -version
+            </code></pre>
+
+
+            <pre><code>
+                # Установка Node.js
+                curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+                sudo apt install -y nodejs
+                node -v
+                npm -v
+            </code></pre>
+
+            <p>В нашем случае используется кубернетес для подключения к источнику потоковых данных</p>
+            <pre><code>
+                # Установка  kubectl
+                wget https://dl.k8s.io/release/v1.31.1/bin/linux/arm64/kubectl -O kubectl
+                chmod +x kubectl
+                sudo mv kubectl /usr/local/bin/
+                kubectl version --client
+            </code></pre>
+
+            <p>Далее настраиваем kube config (файл конфигурации не дам)</p>
+
+            <pre><code>
+                # Прокидываем наружу порт для чтения данных
+                kubectl port-forward -n patient-history pod/patient-history-dep-788599c4c6-bcvg9 8097:8097
+            </code></pre>
+
+            <p>Создаем папки для проектов и выгружаем с репозитория</p>
+            <pre><code>
+                # Перейдём в рабочую папку
+                mkdir -p ~/projects
+                cd ~/projects
+
+                # Клонируем Spring Boot
+                git clone https://github.com/Dan9191/device.git
+
+                # Клонируем React фронт
+                git clone https://github.com/Dan9191/medical-frontend.git
+            </code></pre>
+
+            <p>В соответствующих папках выполняем команды запуска</p>
+            <pre><code>
+                # бэкенд
+                chmod +x gradlew
+                ./gradlew bootRun
+
+                #React
+                npm start
+            </code></pre>
         </div>
     </main>
 </div>
